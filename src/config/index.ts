@@ -25,7 +25,13 @@ export interface AppConfig {
     fomo: boolean;
     birdeye: boolean;
     discovery: boolean;
+    helius: boolean;
     mockProviders: boolean;
+  };
+  backfill: {
+    enabled: boolean;
+    txLimit: number;
+    alertsEnabled: boolean;
   };
 }
 
@@ -55,7 +61,13 @@ export function getConfig(): AppConfig {
       fomo: env.FOMO_ENABLED,
       birdeye: env.BIRDEYE_ENABLED,
       discovery: env.DISCOVERY_ENABLED,
+      helius: env.HELIUS_ENABLED,
       mockProviders: env.USE_MOCK_PROVIDERS,
+    },
+    backfill: {
+      enabled: env.WALLET_BACKFILL_ENABLED,
+      txLimit: env.WALLET_BACKFILL_TX_LIMIT,
+      alertsEnabled: env.BACKFILL_ALERTS_ENABLED,
     },
   };
   return cached;

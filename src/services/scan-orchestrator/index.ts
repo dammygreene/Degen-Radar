@@ -2,7 +2,13 @@ import { getConfig } from "../../config";
 import { analyzeConvergence, type ConvergenceEntry } from "../../domain/convergence";
 import { computeMomentum, type MomentumSnapshot } from "../../domain/momentum";
 import { calculateRadarScore } from "../../domain/scoring";
-import type { MomentumMetrics, ScanBundle, ScanResult, WalletIntel } from "../../domain/scans/types";
+import type {
+  MomentumMetrics,
+  ScanBundle,
+  ScanReason,
+  ScanResult,
+  WalletIntel,
+} from "../../domain/scans/types";
 import type {
   HolderData,
   SocialSnapshot,
@@ -16,13 +22,7 @@ import { getProviders } from "../../providers/registry";
 import type { ProviderBundle } from "../../providers/types";
 import { aggregateSocial } from "../x-intelligence/aggregate";
 
-export type ScanReason =
-  | "WATCHED_WALLET_BUY"
-  | "FOMO_BUY"
-  | "CONVERGENCE"
-  | "MANUAL"
-  | "DISCOVERY"
-  | "MOMENTUM";
+export type { ScanReason } from "../../domain/scans/types";
 
 export interface ScanContext {
   reason: ScanReason;

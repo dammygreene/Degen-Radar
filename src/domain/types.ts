@@ -116,6 +116,14 @@ export interface NormalizedTrade {
   source: string;
   /** Deterministic dedup key computed by the normalizer. */
   idempotencyKey: string;
+  /** Optional richer swap context (populated by Helius/FOMO adapters). */
+  quoteTokenAddress?: string | null;
+  quoteAmount?: number | null;
+  dex?: string | null;
+  /** Classifier confidence 0..1 that this event is a genuine swap/trade. */
+  classifierConfidence?: number;
+  /** True when produced by a historical backfill (must not auto-alert). */
+  backfill?: boolean;
 }
 
 export interface WalletProfile {

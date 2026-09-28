@@ -48,6 +48,35 @@ const HELP_TEXT = [
   "/status – system + provider health",
 ].join("\n");
 
+/**
+ * Register a wallet for indexed monitoring and enqueue a small historical
+ * backfill for context. Backfill trades are marked so they never auto-alert.
+ * All best-effort: failures are logged, never surfaced to the user. (§9)
+ */
+async function subscribeAndBackfill(wallet: string): Promise<void> {
+  const cfg = getConfig();
+  const providers = getProviders();
+  if (!providers.chainEvents) return;
+  try {
+    await providers.chainEvents.subscribeWallet(wallet);
+  } catch (err) {
+    logger.warn({ err, wallet }, "wallet subscribe failed");
+  }
+  if (!cfg.backfill.enabled) return;
+  try {
+    const trades = await providers.chainEvents.backfillWallet(wallet, cfg.backfill.txLimit);
+    const { enqueue } = await import("../queues");
+    for (const trade of trades) {
+      await enqueue("chain-events", "trade", { trade }, {
+        jobId: `${trade.source}:${trade.idempotencyKey}`,
+      });
+    }
+    logger.info({ wallet, backfilled: trades.length }, "wallet backfill enqueued");
+  } catch (err) {
+    logger.warn({ err, wallet }, "wallet backfill failed");
+  }
+}
+
 async function requireUser(telegramUserId: number, username: string | null) {
   try {
     return await upsertUser(telegramUserId, username);
@@ -117,13 +146,15 @@ export function createBot(): Bot | null {
     if (!user) return ctx.reply("⚠️ Database not configured — watchlists are unavailable.");
     try {
       const rec = await addWatchedWallet(user.id, address);
+      // Subscribe to indexed events + kick off a context backfill (no old alerts).
+      void subscribeAndBackfill(rec.walletAddress ?? address);
       await ctx.reply(
         [
           "👀 Wallet added",
           "",
           `Label: ${rec.label ?? shortenAddress(rec.walletAddress ?? address)}`,
           "",
-          "You'll be notified when this wallet buys a token that passes Radar criteria.",
+          "I'll scan tokens when this wallet enters them and alert you only when the setup passes Radar criteria.",
         ].join("\n"),
       );
     } catch {

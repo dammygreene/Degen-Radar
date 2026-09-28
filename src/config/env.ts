@@ -30,6 +30,15 @@ const EnvSchema = z.object({
   SOLANA_RPC_URL: z.string().optional(),
   SOLANA_WS_URL: z.string().optional(),
 
+  // Helius (indexed Solana events / parsed history / webhooks)
+  HELIUS_API_KEY: z.string().optional(),
+  HELIUS_BASE_URL: z.string().default("https://api.helius.xyz"),
+  HELIUS_WEBHOOK_SECRET: z.string().optional(),
+  HELIUS_ENABLED: boolish.default("true"),
+  WALLET_BACKFILL_TX_LIMIT: z.coerce.number().int().default(100),
+  WALLET_BACKFILL_ENABLED: boolish.default("true"),
+  BACKFILL_ALERTS_ENABLED: boolish.default("false"),
+
   // Providers
   FOMO_API_KEY: z.string().optional(),
   FOMO_BASE_URL: z.string().default("https://api.fomoapi.io"),

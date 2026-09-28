@@ -6,6 +6,14 @@ import type {
   TokenSecurityData,
 } from "../types";
 
+export type ScanReason =
+  | "WATCHED_WALLET_BUY"
+  | "FOMO_BUY"
+  | "CONVERGENCE"
+  | "MANUAL"
+  | "DISCOVERY"
+  | "MOMENTUM";
+
 export type SignalDirection = "positive" | "negative" | "neutral";
 
 export type ScoreCategory =

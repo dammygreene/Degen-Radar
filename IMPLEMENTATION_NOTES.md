@@ -95,20 +95,44 @@ source is surfaced.
 | Provider        | Status in this build |
 |-----------------|----------------------|
 | DEX Screener    | **Real** HTTP adapter (no key needed) |
-| Solana RPC      | **Real** mint/freeze authority via `getParsedAccountInfo`; holder distribution + swap parsing require an indexer and are marked `unavailable`/`partial` (lower confidence) rather than fabricated |
-| FOMO            | Interface + deterministic dev adapter (swap the impl for the real `api.fomoapi.io` client + WS feed) |
-| X               | Interface + deterministic dev adapter (swap for official X recent-search) |
-| Birdeye         | Interface + deterministic dev adapter (supplementary) |
+| Solana RPC      | **Real** mint/freeze authority via `getParsedAccountInfo`; holder distribution + creator analysis require an indexer and are marked `unavailable`/`partial` (lower confidence) rather than fabricated |
+| Helius          | **Real** adapter + parser — indexed webhook events (`POST /webhooks/helius`), parsed-history backfill, and a safety-first swap classifier |
+| FOMO            | **Real** HTTP adapter + WebSocket realtime manager (independent/unofficial fomo.family data layer) |
+| X               | **Real** Recent Search adapter + query builder + acceleration windows |
+| Birdeye         | Interface + deterministic dev adapter (supplementary, off the critical path) |
 
-The dev adapters are isolated behind the provider interfaces exactly so the real
-implementations can be dropped in without touching domain/service code.
+All adapters return `null` (not fabricated data) and lower scan confidence when
+their credentials are absent. `USE_MOCK_PROVIDERS=true` is the only path to
+deterministic fixtures and is dev-only. See `PROVIDER_STATUS.md` for per-provider
+detail and `TEST_REPORT.md` for coverage.
+
+## Milestone 2 — production integration + live event pipeline
+
+- **Durable idempotency:** a Postgres `event_inbox` with a unique
+  `(provider, idempotency_key)` constraint is the authoritative dedup layer
+  (`ON CONFLICT DO NOTHING`). BullMQ `jobId` provides a cheap first-line dedup;
+  the inbox is the source of truth. An in-memory implementation backs offline tests.
+- **Event pipeline:** `src/pipeline/process-trade.ts` is a pure orchestrator
+  (injected deps) — inbox dedup → ignore SELL → resolve entity → record entry +
+  analyze convergence → pick scan priority → **coalesced** scan → qualification →
+  per-user cooldown gate → deliver → schedule outcome checkpoints. Statuses:
+  `duplicate | unwatched | ignored_side | backfilled | processed`.
+- **Scan coalescing:** `ScanCoalescer` de-duplicates concurrent per-token scans and
+  reuses a fresh result within a 15s window (blueprint §concurrency).
+- **Ingress:** `POST /webhooks/helius` fast-acks after constant-time secret
+  verification and enqueues to `chain-events`; the FOMO WS manager feeds the same
+  queue. Workers rehydrate `occurredAt` and run the pipeline.
+- **Persistence:** scans/signals, alerts, wallet trades, watched entities and
+  outcome snapshots are written through Drizzle repos (`services/*`), all behind
+  interfaces so the e2e tests run fully in-memory.
+- **Read API:** `/watchlist/:id`, `/wallets/:address`, `/tokens/:address`,
+  `/alerts/:id` (503 in degraded mode without a DB).
 
 ## Follow-ups to reach full production
 
-- Real FOMO / X / Birdeye HTTP + WS adapters behind the existing interfaces.
-- A Solana indexer integration (Helius/Birdeye) for holder concentration,
-  creator analysis and swap parsing.
-- Wire the wallet-monitor `recordEntry`/`resolveEntity`/`requestScan` deps to
-  Drizzle + BullMQ (the pure ingest logic and DB schema are already in place).
-- Persist scans/signals/snapshots/alerts in the worker handlers (schema ready).
-- Generate the initial SQL migration (`npm run db:generate`) against a live DB.
+- Provision Helius webhooks automatically (store webhook id) and confirm live
+  FOMO WS payload field names against a credentialed feed.
+- A Solana indexer integration for holder concentration + creator analysis.
+- Run `npm run db:generate` + `db:migrate` against a live Postgres and validate
+  BullMQ against a live Redis (blocked here — no infra/credentials).
+- Optional: a real Birdeye adapter behind the existing `WalletIntelProvider`.

@@ -25,6 +25,18 @@ export interface ChainProvider {
   getWalletTrades(address: string, since?: Date): Promise<NormalizedTrade[]>;
 }
 
+/** Indexed event provider (Helius) for watched-wallet activity + backfill. */
+export interface ChainEventProvider {
+  readonly name: string;
+  /** Register a wallet for monitoring (webhook/stream). */
+  subscribeWallet(wallet: string): Promise<void>;
+  unsubscribeWallet(wallet: string): Promise<void>;
+  /** Historical backfill of recent parsed swaps for a newly-added wallet. */
+  backfillWallet(wallet: string, txLimit: number): Promise<NormalizedTrade[]>;
+  /** Normalize a single provider transaction into a trade (or null). */
+  parseTradeEvent(input: unknown): NormalizedTrade[];
+}
+
 export interface WalletIntelProvider {
   readonly name: string;
   getWalletProfile(address: string): Promise<WalletProfile | null>;
@@ -59,6 +71,7 @@ export interface XProvider {
 export interface ProviderBundle {
   market: MarketDataProvider;
   chain: ChainProvider;
+  chainEvents: ChainEventProvider | null;
   walletIntel: WalletIntelProvider | null;
   fomo: FomoProvider | null;
   x: XProvider | null;

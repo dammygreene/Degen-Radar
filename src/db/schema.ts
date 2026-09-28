@@ -396,6 +396,29 @@ export const outcomeSnapshots = pgTable(
   }),
 );
 
+export const eventInbox = pgTable(
+  "event_inbox",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventType: text("event_type").notNull(),
+    provider: text("provider").notNull(),
+    providerEventId: text("provider_event_id"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    occurredAt: ts("occurred_at"),
+    receivedAt: ts("received_at").defaultNow().notNull(),
+    processedAt: ts("processed_at"),
+    status: text("status").default("PENDING").notNull(), // PENDING | PROCESSING | PROCESSED | FAILED
+    payload: jsonb("payload").default(sql`'{}'::jsonb`).notNull(),
+    error: text("error"),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => ({
+    uniqProviderKey: unique("uq_inbox_provider_key").on(t.provider, t.idempotencyKey),
+    byStatus: index("idx_inbox_status").on(t.status, t.receivedAt),
+  }),
+);
+
 export const providerHealth = pgTable("provider_health", {
   id: uuid("id").defaultRandom().primaryKey(),
   provider: text("provider").notNull(),
@@ -430,5 +453,6 @@ export const schema = {
   scanSignals,
   alerts,
   outcomeSnapshots,
+  eventInbox,
   providerHealth,
 };

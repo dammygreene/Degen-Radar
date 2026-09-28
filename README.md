@@ -123,12 +123,22 @@ npm start        # node dist/main.js
 ## HTTP API
 
 ```
-GET /            service info
-GET /health      DB / Redis / provider health
-GET /ready       readiness probe
-GET /providers   provider health snapshots
-GET /scan/:addr  read-only deterministic scan of a Solana token
+GET  /                        service info
+GET  /health                  DB / Redis / provider health
+GET  /ready                   readiness probe
+GET  /providers               provider health snapshots
+GET  /scan/:addr              read-only deterministic scan of a Solana token
+POST /webhooks/helius         indexed wallet trade ingress (fast-ack, secret-verified)
+GET  /watchlist/:telegramId   a user's watched wallets + FOMO traders
+GET  /wallets/:address        a watched wallet's recent trades
+GET  /tokens/:address         latest stored token snapshot + scans
+GET  /alerts/:telegramId      a user's recent alerts
 ```
+
+The read routes return `503` in degraded mode (no `DATABASE_URL`). The webhook is
+the live event entrypoint: it verifies `HELIUS_WEBHOOK_SECRET`, parses swaps into
+normalized trades, and enqueues them to the `chain-events` pipeline (durable
+dedup happens in the `event_inbox`). See `PROVIDER_STATUS.md` and `TEST_REPORT.md`.
 
 ## Scoring (100 pts, deterministic & explainable)
 
